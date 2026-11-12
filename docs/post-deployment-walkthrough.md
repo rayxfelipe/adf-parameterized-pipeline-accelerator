@@ -279,6 +279,14 @@ To verify the real data path without changing permissions, trigger `acc_PreviewC
 
 If the actual pipeline also returns 403, investigate its precise error, factory identity roles, and storage network configuration. Do not enable public access, shared keys, or account-wide data permissions merely to make the account-level test green.
 
+### Optional operator browsing in governed environments
+
+The baseline intentionally blocks workstation storage browsing. If an operator needs to view files in Azure Portal, both network access and data-plane authorization are required. Use an organization-approved private network path or, where governance permits it, an **enforced Network Security Perimeter** with the operator's specific public IP allowed. Grant the operator **Storage Blob Data Reader** on the demo account and use Microsoft Entra authentication in Portal. Subscription Owner alone does not grant this data access when shared keys are disabled.
+
+An enforced perimeter overrides the storage firewall and does not honor its trusted-service exception. Preserve ADF connectivity with an appropriate authenticated subscription-based perimeter rule and verify actual copy/preview runs after the change. Network allowances do not grant data permissions; the factory still needs its container roles. See [Storage network security perimeters](https://learn.microsoft.com/azure/storage/common/storage-network-security-perimeter).
+
+Keep operator-specific IPs, identities, and deployment overlays outside Git. Proxy/VPN IP changes require reviewing the corresponding narrow rule. These environment-specific settings are separate from the baseline deployment; its integration test intentionally asserts `publicNetworkAccess = Disabled`, so review that security assertion before using the test against a perimeter-customized environment.
+
 For real data, use your approved ingestion, network isolation, schema validation, monitoring, and data-governance processes.
 
 ## 8. Optional failure-learning exercises
