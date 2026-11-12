@@ -219,6 +219,8 @@ You do **not** need the full test suite to complete the quick start.
 | Role-assignment authorization error | Contributor alone is insufficient; have your administrator approve the required RBAC permissions. |
 | Provider not registered | Follow the registration commands in the prerequisites with subscription-level permission. |
 | ADF storage 403 | Check the factory identity's container grants, trusted-service exception, and RBAC propagation. Do not enable public access as a workaround. |
+| Linked-service **Test connection** returns 403 but pipeline runs succeed | The account-level test can exceed this sample's container-scoped permissions. If available, select **To file path** and enter an existing sample path, or verify using `acc_PreviewCsv`. See the [walkthrough](docs/post-deployment-walkthrough.md#studio-connection-tests-and-container-scoped-access). Do not broaden permissions just to pass an account-level test. |
+| Copy sink returns 400 / `AzureBlobWriteOperationFailed` | Inspect the actual run parameters for tabs, newlines, or other control characters in folder/file values. Replace the entire affected value and start a new **Trigger now** run. A tab before `renamed-inspections.csv` makes the blob name invalid; rerunning the failed execution unchanged reuses the bad value. |
 | Workstation storage browser/CLI is blocked | Expected. Use `-PreviewOutput` or ADF Monitor for synthetic data. |
 | `SOURCE_FILE_NOT_FOUND` | Check case-sensitive source paths; rerun deployment if the samples need reseeding. |
 | `EMPTY_JOB_LIST` | Supply at least one complete object in `pJobs`. |

@@ -87,6 +87,10 @@ Open [copy.parameters.json](../examples/copy.parameters.json). The first run sup
 }
 ```
 
+For a Studio-only demo, open **Author > Pipelines > Accelerator > acc_CopyCsv**, select **Add trigger > Trigger now**, and enter all seven values above. The source/sink folder and file parameters do not have defaults; the PowerShell runner supplies them from the example file.
+
+Enter only each value, without JSON quotes or table formatting. If a copy fails with HTTP 400, inspect the run parameters for invisible characters: for example, `\trenamed-inspections.csv` contains a leading tab (`U+0009`), which is not a valid blob-name character. Replace the entire field with `renamed-inspections.csv` and start a new **Trigger now** run. Rerunning the failed execution unchanged reuses its invalid parameter.
+
 Trace `pSinkFile`:
 
 ```text
@@ -264,6 +268,16 @@ This is reuse of the **same child pipeline**, not deployment of one pipeline per
 The core pattern is `acc_CopyCsv` + `acc_Csv` + expression bindings. The optional parent adds metadata-driven orchestration. Neither helper is required to understand why that pattern works.
 
 Storage public network access and shared-key access remain disabled. A trusted-service exception plus container-scoped managed-identity permissions allows the ADF service requests. This is not an anonymous/public blob sample, nor a private-endpoint-only topology.
+
+### Studio connection tests and container-scoped access
+
+The linked service's account-level **Test connection** can return HTTP 403 even when the copy and preview pipelines succeed. This sample grants the factory identity access to `landing` and `curated`, not account-wide container enumeration. An account-root test is therefore broader than the operations the pipeline needs; its failure alone does not establish that the pipeline lacks access.
+
+If Studio offers **Test connection > To file path**, enter an existing sample explicitly: container `landing`, folder `2026-01-15/demo-utility-a`, file `inspections.csv`. Enter the path rather than relying on account-level browsing. Studio may reset the test selection when the linked service is reopened; this is a test setting, not a pipeline parameter.
+
+To verify the real data path without changing permissions, trigger `acc_PreviewCsv` in **Accelerator/Helpers** with `pContainer = landing`, `pFolder = 2026-01-15/demo-utility-a`, `pFile = inspections.csv`, and `pDelimiter = ,`. Inspect **Monitor > Pipeline runs > activity runs > LookupCsv > Output** for three records. After a successful copy, use `pContainer = curated`, `pFolder = single-copy/2026-01-15/demo-utility-a`, and `pFile = renamed-inspections.csv` to verify its output too.
+
+If the actual pipeline also returns 403, investigate its precise error, factory identity roles, and storage network configuration. Do not enable public access, shared keys, or account-wide data permissions merely to make the account-level test green.
 
 For real data, use your approved ingestion, network isolation, schema validation, monitoring, and data-governance processes.
 
