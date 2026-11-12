@@ -1,0 +1,9 @@
+{
+  "pSourceContainer": "landing",
+  "pSourceFolder": "2026-01-15/demo-utility-a",
+  "pSourceFile": "inspections.csv",
+  "pSinkContainer": "curated",
+  "pSinkFolder": "single-copy/2026-01-15/demo-utility-a",
+  "pSinkFile": "renamed-inspections.csv",
+  "pDelimiter": ","
+}

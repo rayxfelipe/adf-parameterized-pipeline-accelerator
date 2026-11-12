@@ -1,0 +1,64 @@
+{
+  "name": "acc_ProcessBatch",
+  "properties": {
+    "description": "ADF Parameterized Pipeline Accelerator: metadata-driven ForEach calls the same child pipeline for different utilities and CSV schemas.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "folder": { "name": "Accelerator" },
+    "parameters": {
+      "pJobs": { "type": "Array" },
+      "pRunDate": { "type": "String" },
+      "pSourceContainer": { "type": "String", "defaultValue": "landing" },
+      "pSinkContainer": { "type": "String", "defaultValue": "curated" },
+      "pOutputRoot": { "type": "String", "defaultValue": "processed" }
+    },
+    "activities": [
+      {
+        "name": "ValidateJobs",
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": { "value": "@equals(length(pipeline().parameters.pJobs), 0)", "type": "Expression" },
+          "ifTrueActivities": [
+            {
+              "name": "FailEmptyJobs",
+              "type": "Fail",
+              "typeProperties": {
+                "errorCode": "EMPTY_JOB_LIST",
+                "message": "pJobs must contain at least one copy job."
+              }
+            }
+          ],
+          "ifFalseActivities": []
+        }
+      },
+      {
+        "name": "ForEachJob",
+        "type": "ForEach",
+        "dependsOn": [{ "activity": "ValidateJobs", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "items": { "value": "@pipeline().parameters.pJobs", "type": "Expression" },
+          "isSequential": false,
+          "batchCount": 2,
+          "activities": [
+            {
+              "name": "ExecuteCopyCsv",
+              "type": "ExecutePipeline",
+              "typeProperties": {
+                "pipeline": { "referenceName": "acc_CopyCsv", "type": "PipelineReference" },
+                "waitOnCompletion": true,
+                "parameters": {
+                  "pSourceContainer": { "value": "@pipeline().parameters.pSourceContainer", "type": "Expression" },
+                  "pSourceFolder": { "value": "@item().sourceFolder", "type": "Expression" },
+                  "pSourceFile": { "value": "@item().sourceFile", "type": "Expression" },
+                  "pSinkContainer": { "value": "@pipeline().parameters.pSinkContainer", "type": "Expression" },
+                  "pSinkFolder": { "value": "@concat(pipeline().parameters.pOutputRoot, '/', pipeline().parameters.pRunDate, '/', item().utilityId, '/', item().dataset)", "type": "Expression" },
+                  "pSinkFile": { "value": "@item().sinkFile", "type": "Expression" },
+                  "pDelimiter": { "value": "@item().delimiter", "type": "Expression" }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

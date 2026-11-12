@@ -1,0 +1,4 @@
+inspection_id,utility_id,inspection_date,asset_id,county,risk_level,status
+DEMO-INSP-001,demo-utility-a,2026-01-15,DEMO-ASSET-101,Alpine,High,Open
+DEMO-INSP-002,demo-utility-a,2026-01-15,DEMO-ASSET-102,Butte,Medium,Closed
+DEMO-INSP-003,demo-utility-a,2026-01-15,DEMO-ASSET-103,Calaveras,Low,Closed

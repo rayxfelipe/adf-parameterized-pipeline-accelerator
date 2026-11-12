@@ -1,0 +1,33 @@
+{
+  "name": "acc_Csv",
+  "properties": {
+    "description": "ADF Parameterized Pipeline Accelerator: one schema-flexible dataset for both source and sink.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "linkedServiceName": {
+      "referenceName": "acc_BlobStorage",
+      "type": "LinkedServiceReference"
+    },
+    "parameters": {
+      "pContainer": { "type": "String" },
+      "pFolder": { "type": "String" },
+      "pFile": { "type": "String" },
+      "pDelimiter": { "type": "String", "defaultValue": "," }
+    },
+    "folder": { "name": "Accelerator" },
+    "type": "DelimitedText",
+    "typeProperties": {
+      "location": {
+        "type": "AzureBlobStorageLocation",
+        "container": { "value": "@dataset().pContainer", "type": "Expression" },
+        "folderPath": { "value": "@dataset().pFolder", "type": "Expression" },
+        "fileName": { "value": "@dataset().pFile", "type": "Expression" }
+      },
+      "columnDelimiter": { "value": "@dataset().pDelimiter", "type": "Expression" },
+      "quoteChar": "\"",
+      "escapeChar": "\\",
+      "firstRowAsHeader": true,
+      "encodingName": "UTF-8"
+    },
+    "schema": []
+  }
+}

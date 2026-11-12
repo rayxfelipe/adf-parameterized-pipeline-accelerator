@@ -1,0 +1,24 @@
+{
+  "pRunDate": "2026-01-15",
+  "pSourceContainer": "landing",
+  "pSinkContainer": "curated",
+  "pOutputRoot": "processed",
+  "pJobs": [
+    {
+      "utilityId": "demo-utility-a",
+      "dataset": "inspections",
+      "sourceFolder": "2026-01-15/demo-utility-a",
+      "sourceFile": "inspections.csv",
+      "sinkFile": "inspections.csv",
+      "delimiter": ","
+    },
+    {
+      "utilityId": "demo-utility-b",
+      "dataset": "mitigations",
+      "sourceFolder": "2026-01-15/demo-utility-b",
+      "sourceFile": "mitigations.csv",
+      "sinkFile": "mitigations.csv",
+      "delimiter": ","
+    }
+  ]
+}

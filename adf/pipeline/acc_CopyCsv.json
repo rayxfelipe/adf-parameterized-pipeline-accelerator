@@ -1,0 +1,107 @@
+{
+  "name": "acc_CopyCsv",
+  "properties": {
+    "description": "ADF Parameterized Pipeline Accelerator: copy any header-based CSV using runtime paths, with an explicit missing-file error.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "folder": { "name": "Accelerator" },
+    "parameters": {
+      "pSourceContainer": { "type": "String", "defaultValue": "landing" },
+      "pSourceFolder": { "type": "String" },
+      "pSourceFile": { "type": "String" },
+      "pSinkContainer": { "type": "String", "defaultValue": "curated" },
+      "pSinkFolder": { "type": "String" },
+      "pSinkFile": { "type": "String" },
+      "pDelimiter": { "type": "String", "defaultValue": "," }
+    },
+    "activities": [
+      {
+        "name": "CheckSourceExists",
+        "type": "GetMetadata",
+        "policy": { "timeout": "0.00:05:00", "retry": 2, "retryIntervalInSeconds": 30 },
+        "typeProperties": {
+          "dataset": {
+            "referenceName": "acc_Csv",
+            "type": "DatasetReference",
+            "parameters": {
+              "pContainer": { "value": "@pipeline().parameters.pSourceContainer", "type": "Expression" },
+              "pFolder": { "value": "@pipeline().parameters.pSourceFolder", "type": "Expression" },
+              "pFile": { "value": "@pipeline().parameters.pSourceFile", "type": "Expression" },
+              "pDelimiter": { "value": "@pipeline().parameters.pDelimiter", "type": "Expression" }
+            }
+          },
+          "fieldList": ["exists"],
+          "storeSettings": { "type": "AzureBlobStorageReadSettings", "recursive": false },
+          "formatSettings": { "type": "DelimitedTextReadSettings" }
+        }
+      },
+      {
+        "name": "CopyOrFail",
+        "type": "IfCondition",
+        "dependsOn": [{ "activity": "CheckSourceExists", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "expression": { "value": "@activity('CheckSourceExists').output.exists", "type": "Expression" },
+          "ifTrueActivities": [
+            {
+              "name": "CopyCsv",
+              "type": "Copy",
+              "policy": { "timeout": "0.00:10:00", "retry": 2, "retryIntervalInSeconds": 30 },
+              "inputs": [
+                {
+                  "referenceName": "acc_Csv",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "pContainer": { "value": "@pipeline().parameters.pSourceContainer", "type": "Expression" },
+                    "pFolder": { "value": "@pipeline().parameters.pSourceFolder", "type": "Expression" },
+                    "pFile": { "value": "@pipeline().parameters.pSourceFile", "type": "Expression" },
+                    "pDelimiter": { "value": "@pipeline().parameters.pDelimiter", "type": "Expression" }
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "acc_Csv",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "pContainer": { "value": "@pipeline().parameters.pSinkContainer", "type": "Expression" },
+                    "pFolder": { "value": "@pipeline().parameters.pSinkFolder", "type": "Expression" },
+                    "pFile": { "value": "@pipeline().parameters.pSinkFile", "type": "Expression" },
+                    "pDelimiter": { "value": "@pipeline().parameters.pDelimiter", "type": "Expression" }
+                  }
+                }
+              ],
+              "typeProperties": {
+                "source": {
+                  "type": "DelimitedTextSource",
+                  "storeSettings": { "type": "AzureBlobStorageReadSettings", "recursive": false },
+                  "formatSettings": { "type": "DelimitedTextReadSettings" }
+                },
+                "sink": {
+                  "type": "DelimitedTextSink",
+                  "storeSettings": { "type": "AzureBlobStorageWriteSettings" },
+                  "formatSettings": { "type": "DelimitedTextWriteSettings", "quoteAllText": true, "fileExtension": ".csv" }
+                },
+                "enableStaging": false,
+                "dataIntegrationUnits": 4,
+                "parallelCopies": 1,
+                "translator": { "type": "TabularTranslator", "typeConversion": false }
+              }
+            }
+          ],
+          "ifFalseActivities": [
+            {
+              "name": "FailMissingSource",
+              "type": "Fail",
+              "typeProperties": {
+                "errorCode": "SOURCE_FILE_NOT_FOUND",
+                "message": {
+                  "value": "@concat('Source file not found: ', pipeline().parameters.pSourceContainer, '/', pipeline().parameters.pSourceFolder, '/', pipeline().parameters.pSourceFile)",
+                  "type": "Expression"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

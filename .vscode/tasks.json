@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Accelerator: Validate locally",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/tests/Test-Local.ps1"],
+      "problemMatcher": [],
+      "group": { "kind": "test", "isDefault": true }
+    },
+    {
+      "label": "Accelerator: Preview deployment",
+      "type": "process",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile", "-File", "${workspaceFolder}/scripts/Deploy.ps1",
+        "-SubscriptionId", "${input:subscriptionId}",
+        "-ResourceGroupName", "${input:resourceGroup}",
+        "-Location", "${input:location}",
+        "-Preview"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Accelerator: Deploy and seed",
+      "type": "process",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile", "-File", "${workspaceFolder}/scripts/Deploy.ps1",
+        "-SubscriptionId", "${input:subscriptionId}",
+        "-ResourceGroupName", "${input:resourceGroup}",
+        "-Location", "${input:location}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Accelerator: Run single copy and show rows",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Run-Demo.ps1", "-PreviewOutput"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Accelerator: Run batch (optional)",
+      "type": "process",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile", "-File", "${workspaceFolder}/scripts/Run-Demo.ps1",
+        "-PipelineName", "acc_ProcessBatch", "-PreviewOutput"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Accelerator: Test deployed pipelines",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/tests/Test-Deployed.ps1"],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    { "id": "subscriptionId", "type": "promptString", "description": "Target Azure subscription ID" },
+    { "id": "resourceGroup", "type": "promptString", "description": "Dedicated accelerator resource group", "default": "rg-adf-parameterized-demo" },
+    { "id": "location", "type": "promptString", "description": "Azure region", "default": "westus2" }
+  ]
+}

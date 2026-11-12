@@ -1,0 +1,46 @@
+{
+  "name": "acc_SeedSamples",
+  "properties": {
+    "description": "ADF Parameterized Pipeline Accelerator: load tiny synthetic CSVs through managed identity without opening storage to the operator's network.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "folder": { "name": "Accelerator/Helpers" },
+    "parameters": {
+      "pBlobServiceUrl": { "type": "String" },
+      "pSamples": { "type": "Array" }
+    },
+    "activities": [
+      {
+        "name": "ForEachSample",
+        "type": "ForEach",
+        "typeProperties": {
+          "items": { "value": "@pipeline().parameters.pSamples", "type": "Expression" },
+          "isSequential": false,
+          "batchCount": 2,
+          "activities": [
+            {
+              "name": "UploadSyntheticCsv",
+              "type": "WebActivity",
+              "policy": {
+                "timeout": "0.00:05:00",
+                "retry": 8,
+                "retryIntervalInSeconds": 30,
+                "secureInput": true
+              },
+              "typeProperties": {
+                "method": "PUT",
+                "url": { "value": "@concat(pipeline().parameters.pBlobServiceUrl, 'landing/', item().blobName)", "type": "Expression" },
+                "headers": {
+                  "x-ms-version": "2023-11-03",
+                  "x-ms-blob-type": "BlockBlob",
+                  "Content-Type": "text/csv; charset=utf-8"
+                },
+                "body": { "value": "@item().content", "type": "Expression" },
+                "authentication": { "type": "MSI", "resource": "https://storage.azure.com/" }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

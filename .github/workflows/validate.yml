@@ -1,0 +1,18 @@
+name: Validate accelerator
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Validate source, samples, and Bicep
+        shell: pwsh
+        run: .\tests\Test-Local.ps1

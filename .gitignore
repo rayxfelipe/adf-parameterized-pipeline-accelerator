@@ -1,0 +1,8 @@
+.local/
+.azure/
+infra/main.json
+infra/modules/*.json
+*.local.json
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,39 @@
+{
+  "name": "acc_PreviewCsv",
+  "properties": {
+    "description": "ADF Parameterized Pipeline Accelerator: inspect small synthetic CSVs through Lookup without direct client storage access. Not a bulk export tool.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "folder": { "name": "Accelerator/Helpers" },
+    "parameters": {
+      "pContainer": { "type": "String", "defaultValue": "curated" },
+      "pFolder": { "type": "String" },
+      "pFile": { "type": "String" },
+      "pDelimiter": { "type": "String", "defaultValue": "," }
+    },
+    "activities": [
+      {
+        "name": "LookupCsv",
+        "type": "Lookup",
+        "policy": { "timeout": "0.00:05:00", "retry": 2, "retryIntervalInSeconds": 30 },
+        "typeProperties": {
+          "source": {
+            "type": "DelimitedTextSource",
+            "storeSettings": { "type": "AzureBlobStorageReadSettings", "recursive": false },
+            "formatSettings": { "type": "DelimitedTextReadSettings" }
+          },
+          "dataset": {
+            "referenceName": "acc_Csv",
+            "type": "DatasetReference",
+            "parameters": {
+              "pContainer": { "value": "@pipeline().parameters.pContainer", "type": "Expression" },
+              "pFolder": { "value": "@pipeline().parameters.pFolder", "type": "Expression" },
+              "pFile": { "value": "@pipeline().parameters.pFile", "type": "Expression" },
+              "pDelimiter": { "value": "@pipeline().parameters.pDelimiter", "type": "Expression" }
+            }
+          },
+          "firstRowOnly": false
+        }
+      }
+    ]
+  }
+}

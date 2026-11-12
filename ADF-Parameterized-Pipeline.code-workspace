@@ -1,0 +1,19 @@
+{
+  "folders": [
+    { "name": "ADF Parameterized Pipeline Accelerator", "path": "." }
+  ],
+  "settings": {
+    "files.exclude": { "**/.local": true },
+    "files.eol": "\n",
+    "editor.tabSize": 2,
+    "[powershell]": { "editor.tabSize": 4 },
+    "json.validate.enable": true
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-azuretools.vscode-bicep",
+      "ms-vscode.powershell",
+      "ms-azuretools.vscode-azureresourcegroups"
+    ]
+  }
+}

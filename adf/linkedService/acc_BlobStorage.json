@@ -1,0 +1,12 @@
+{
+  "name": "acc_BlobStorage",
+  "properties": {
+    "description": "ADF Parameterized Pipeline Accelerator: system-assigned managed identity; endpoint injected by Bicep.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "type": "AzureBlobStorage",
+    "typeProperties": {
+      "serviceEndpoint": "https://YOUR_STORAGE_ACCOUNT.blob.core.windows.net/",
+      "accountKind": "StorageV2"
+    }
+  }
+}

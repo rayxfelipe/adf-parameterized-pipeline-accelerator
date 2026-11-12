@@ -1,0 +1,3 @@
+mitigation_id,utility_id,report_date,program,planned_units,completed_units
+DEMO-MIT-001,demo-utility-b,2026-01-15,Vegetation management,120,100
+DEMO-MIT-002,demo-utility-b,2026-01-15,Equipment inspection,80,75
