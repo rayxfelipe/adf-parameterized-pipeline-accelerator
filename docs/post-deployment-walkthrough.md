@@ -50,6 +50,7 @@ Open the printed `studioUrl`, or find the factory in Azure Portal and select its
 | `acc_BlobStorage` | Linked service: how ADF connects to the account | Studio **Manage > Linked services** |
 | `acc_Csv` | Dataset: which CSV and how it is formatted | Studio **Author > Datasets > Accelerator** |
 | `acc_CopyCsv` | Core reusable, single-file pipeline | Studio **Author > Pipelines > Accelerator** |
+| `acc_CheckFileExists` | Standalone, read-only existence check for a parameterized blob path | Same pipeline folder |
 | `acc_ProcessBatch` | Optional parent that calls the core pipeline for each job | Same pipeline folder |
 | `acc_SeedSamples` / `acc_PreviewCsv` | Setup and inspection helpers, not the core parameterization lesson | **Accelerator/Helpers** |
 | Container-scoped role assignments | Let the factory identity read/write the appropriate containers | Azure Portal **Access control (IAM)** |
@@ -132,6 +133,34 @@ Inside `acc_CopyCsv`:
 4. **False branch: `FailMissingSource`** fails with `SOURCE_FILE_NOT_FOUND` and the selected source path.
 
 Parameterization does not create missing files or grant new permissions. It selects a path within what the identity is already authorized to access.
+
+### Standalone file-existence check
+
+To demonstrate just the check, open **Author > Pipelines > Accelerator > acc_CheckFileExists** and select **Add trigger > Trigger now**. Use [check-file-exists.parameters.json](../examples/check-file-exists.parameters.json):
+
+| Parameter | Value |
+|---|---|
+| `pContainer` | `landing` |
+| `pFolder` | `2026-01-15/demo-utility-a` |
+| `pFile` | `inspections.csv` |
+
+The pipeline contains a single **Get Metadata** activity named `CheckFileExists`, with **Field list = Exists**. It reuses `acc_Csv` and `acc_BlobStorage`, so the same account and managed identity are used. Only existence metadata is requested; the CSV delimiter does not affect this check and no file content is parsed.
+
+In **Monitor > Pipeline runs > activity runs > CheckFileExists > Output**, inspect:
+
+```json
+{ "exists": true }
+```
+
+ADF also includes execution details in the output. Change only `pFile` to `missing-demo-file.csv`, assuming that name has not been created, and run again. The output contains `"exists": false` and the pipeline still succeeds. Unlike `acc_CopyCsv`, this pipeline does not deliberately fail when a file is absent. Service, authorization, and networking errors are not converted into `false`.
+
+If you add an **If Condition** after this activity, connect it with a **Succeeded** dependency and use:
+
+```text
+@activity('CheckFileExists').output.exists
+```
+
+The true branch can process the file, and the false branch can skip or explicitly fail according to your application's requirements. This sample leaves that decision to the caller. Use an exact blob filename, not a wildcard; `pContainer` and `pFolder` exclude the account URL and filename. Keep `pFile` nonempty so the check targets a file rather than a folder.
 
 ### Find the completed run
 

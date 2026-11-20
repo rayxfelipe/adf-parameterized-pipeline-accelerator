@@ -1,0 +1,35 @@
+{
+  "name": "acc_CheckFileExists",
+  "properties": {
+    "description": "ADF Parameterized Pipeline Accelerator: check a runtime-selected blob path without copying or modifying files. Inspect CheckFileExists output.exists.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "folder": { "name": "Accelerator" },
+    "parameters": {
+      "pContainer": { "type": "String", "defaultValue": "landing" },
+      "pFolder": { "type": "String" },
+      "pFile": { "type": "String" }
+    },
+    "activities": [
+      {
+        "name": "CheckFileExists",
+        "type": "GetMetadata",
+        "policy": { "timeout": "0.00:05:00", "retry": 2, "retryIntervalInSeconds": 30 },
+        "typeProperties": {
+          "dataset": {
+            "referenceName": "acc_Csv",
+            "type": "DatasetReference",
+            "parameters": {
+              "pContainer": { "value": "@pipeline().parameters.pContainer", "type": "Expression" },
+              "pFolder": { "value": "@pipeline().parameters.pFolder", "type": "Expression" },
+              "pFile": { "value": "@pipeline().parameters.pFile", "type": "Expression" },
+              "pDelimiter": ","
+            }
+          },
+          "fieldList": ["exists"],
+          "storeSettings": { "type": "AzureBlobStorageReadSettings", "recursive": false },
+          "formatSettings": { "type": "DelimitedTextReadSettings" }
+        }
+      }
+    ]
+  }
+}

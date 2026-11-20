@@ -142,12 +142,27 @@ The second CSV has a different schema. Neither needs a separate dataset or copy 
 | `acc_BlobStorage` linked service | Defines the account connection and managed-identity authentication |
 | `acc_Csv` dataset | Reuses the same CSV definition with container/folder/file/delimiter parameters |
 | `acc_CopyCsv` pipeline | Checks and copies one runtime-selected CSV |
+| `acc_CheckFileExists` pipeline | Checks one runtime-selected blob path and returns a Boolean `exists` without copying |
 | `acc_ProcessBatch` pipeline | Calls the reusable copy pipeline for a metadata list |
 | `acc_SeedSamples` helper | Uploads only the tiny synthetic CSVs |
 | `acc_PreviewCsv` helper | Makes small output datasets readable through ADF Lookup |
 | Container-scoped RBAC grants | Authorizes the factory identity on the demo containers |
 
 No scheduled triggers, custom compute cluster, or database is deployed. The default region is West US 2; choose an approved supported region.
+
+### Check a file without copying it
+
+In ADF Studio open **Author > Pipelines > Accelerator > acc_CheckFileExists**, then select **Add trigger > Trigger now**:
+
+| Parameter | Value |
+|---|---|
+| `pContainer` | `landing` |
+| `pFolder` | `2026-01-15/demo-utility-a` |
+| `pFile` | `inspections.csv` |
+
+In **Monitor > Pipeline runs > activity runs > CheckFileExists > Output**, expect `"exists": true`. Change only `pFile` to `missing-demo-file.csv` to demonstrate `"exists": false` (provided that file has not been created). Both checks succeed; missing files are a result, not an error. Authentication/network errors still fail the activity. No files are created, modified, or copied.
+
+The inputs are also in [check-file-exists.parameters.json](examples/check-file-exists.parameters.json). See the [walkthrough](docs/post-deployment-walkthrough.md#standalone-file-existence-check) for the expression used to branch on the result.
 
 ## VS Code
 
@@ -193,8 +208,16 @@ You do **not** need the full test suite to complete the quick start.
 .\tests\Test-Deployed.ps1
 ```
 
+To validate only the standalone existence check against an already deployed factory:
+
+```powershell
+.\tests\Test-Deployed.ps1 -FileExistenceOnly
+```
+
+This targeted mode verifies an existing file (`true`) and a unique missing file (`false`), saving evidence in `.local/file-existence-test-results.json`. It does not run the full suite's baseline network assertions or copy tests.
+
 - Local validation checks source syntax, parameter bindings, sample paths, distinct CSV schemas, and Bicep compilation. GitHub Actions runs it without Azure credentials.
-- Deployed validation checks every output field, file/byte metrics, renamed output, overwrite on rerun, missing-source failure, child-failure propagation, and empty-batch failure.
+- Deployed validation checks existing/missing file-existence results, every output field, file/byte metrics, renamed output, overwrite on rerun, missing-source failure, child-failure propagation, and empty-batch failure.
 - **Expected failures:** cloud tests intentionally create failed runs for negative cases. A failed test scenario is not a broken installation when the test script reports PASS.
 - Cloud tests incur Azure charges and save their evidence locally in `.local/test-results.json`.
 

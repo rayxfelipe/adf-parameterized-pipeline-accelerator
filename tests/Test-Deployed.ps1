@@ -1,6 +1,9 @@
 #Requires -Version 7.2
 [CmdletBinding()]
-param([string] $DeploymentFile = '')
+param(
+    [string] $DeploymentFile = '',
+    [switch] $FileExistenceOnly
+)
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\Common.ps1')
 $deployment = if ($DeploymentFile) { Read-Deployment -Path $DeploymentFile } else { Read-Deployment }
 $results = [Collections.Generic.List[object]]::new()
@@ -8,6 +11,35 @@ $results = [Collections.Generic.List[object]]::new()
 function Assert-True {
     param([bool] $Condition, [string] $Message)
     if (-not $Condition) { throw $Message }
+}
+
+function Test-FileExistence {
+    $parameters = Get-Content -Raw (Join-Path $script:ProjectRoot 'examples\check-file-exists.parameters.json') | ConvertFrom-Json -AsHashtable
+    $cases = @(
+        @{ file = $parameters.pFile; expected = $true }
+        @{ file = "missing-$([guid]::NewGuid()).csv"; expected = $false }
+    )
+    foreach ($case in $cases) {
+        $parameters.pFile = $case.file
+        $run = Invoke-AdfPipeline -Deployment $deployment -PipelineName 'acc_CheckFileExists' -Parameters $parameters
+        $activities = @($run.activities | Where-Object { $_.activityName -eq 'CheckFileExists' })
+        Assert-True ($activities.Count -eq 1) 'File check must return exactly one CheckFileExists activity.'
+        $activity = $activities[0]
+        Assert-True ($activity.status -eq 'Succeeded') "File-check activity failed for $($case.file)"
+        Assert-True ($activity.output.ContainsKey('exists') -and $activity.output.exists -is [bool]) 'File check must return a Boolean exists value.'
+        Assert-True ($activity.output.exists -eq $case.expected) "Unexpected exists value for $($case.file)"
+        $results.Add($run)
+        Write-Host "PASS: $($case.file) returns exists=$($case.expected) with a successful run"
+    }
+}
+
+if ($FileExistenceOnly) {
+    Test-FileExistence
+    $report = Join-Path $script:ProjectRoot '.local\file-existence-test-results.json'
+    @{ testedAtUtc = [DateTime]::UtcNow.ToString('o'); results = $results.ToArray() } |
+        ConvertTo-Json -Depth 50 | Set-Content -LiteralPath $report -Encoding utf8NoBOM
+    Write-Host "File-existence tests passed. Evidence: $report"
+    return
 }
 
 function Assert-CsvOutput {
@@ -41,6 +73,8 @@ Assert-True ($storage.allowSharedKeyAccess -eq $false) 'Storage shared-key acces
 Assert-True ($storage.allowBlobPublicAccess -eq $false) 'Anonymous blob access must remain disabled.'
 Assert-True ($storage.networkRuleSet.defaultAction -eq 'Deny') 'Storage firewall must default to deny.'
 Write-Host 'PASS: deployed storage public access, keys, anonymous access, and firewall safeguards'
+
+Test-FileExistence
 
 $batch = Get-Content -Raw (Join-Path $script:ProjectRoot 'examples\batch.parameters.json') | ConvertFrom-Json -AsHashtable
 $batch.pOutputRoot = "validation/$([guid]::NewGuid().ToString('N').Substring(0, 8))"

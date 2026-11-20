@@ -53,6 +53,7 @@ var copyDefinition = loadJsonContent('../../adf/pipeline/acc_CopyCsv.json')
 var batchDefinition = loadJsonContent('../../adf/pipeline/acc_ProcessBatch.json')
 var seedDefinition = loadJsonContent('../../adf/pipeline/acc_SeedSamples.json')
 var previewDefinition = loadJsonContent('../../adf/pipeline/acc_PreviewCsv.json')
+var checkFileDefinition = loadJsonContent('../../adf/pipeline/acc_CheckFileExists.json')
 
 resource linkedService 'Microsoft.DataFactory/factories/linkedservices@2018-06-01' = {
   parent: factory
@@ -97,5 +98,12 @@ resource previewPipeline 'Microsoft.DataFactory/factories/pipelines@2018-06-01' 
   parent: factory
   name: previewDefinition.name
   properties: previewDefinition.properties
+  dependsOn: [dataset, sourceRole, sinkRole]
+}
+
+resource checkFilePipeline 'Microsoft.DataFactory/factories/pipelines@2018-06-01' = {
+  parent: factory
+  name: checkFileDefinition.name
+  properties: checkFileDefinition.properties
   dependsOn: [dataset, sourceRole, sinkRole]
 }

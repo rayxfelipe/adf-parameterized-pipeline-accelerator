@@ -29,6 +29,21 @@ $batch = Get-Content -Raw (Join-Path $root 'adf\pipeline\acc_ProcessBatch.json')
 $dataset = Get-Content -Raw (Join-Path $root 'adf\dataset\acc_Csv.json') | ConvertFrom-Json -AsHashtable
 $jobs = Get-Content -Raw (Join-Path $root 'examples\batch.parameters.json') | ConvertFrom-Json -AsHashtable
 $single = Get-Content -Raw (Join-Path $root 'examples\copy.parameters.json') | ConvertFrom-Json -AsHashtable
+$checkFile = Get-Content -Raw (Join-Path $root 'adf\pipeline\acc_CheckFileExists.json') | ConvertFrom-Json -AsHashtable
+$checkParameters = Get-Content -Raw (Join-Path $root 'examples\check-file-exists.parameters.json') | ConvertFrom-Json -AsHashtable
+
+foreach ($reference in [regex]::Matches(($checkFile | ConvertTo-Json -Depth 30), 'pipeline\(\)\.parameters\.(\w+)')) {
+    $name = $reference.Groups[1].Value
+    Assert-True ($checkFile.properties.parameters.ContainsKey($name)) "Undeclared file-check parameter: $name"
+    Assert-True ($checkParameters.ContainsKey($name)) "File-check example missing parameter: $name"
+}
+$checkBinding = $checkFile.properties.activities[0].typeProperties.dataset
+Assert-True ($checkBinding.referenceName -eq $dataset.name) 'File check must reuse the existing dataset.'
+foreach ($name in $dataset.properties.parameters.Keys) {
+    Assert-True ($checkBinding.parameters.ContainsKey($name)) "File check missing dataset parameter: $name"
+}
+$checkSource = Join-Path $root ("samples\landing\" + $checkParameters.pFolder.Replace('/', '\') + '\' + $checkParameters.pFile)
+Assert-True (Test-Path -LiteralPath $checkSource) 'File-check example must target an existing sample.'
 
 $references = [regex]::Matches(($copy | ConvertTo-Json -Depth 50), 'pipeline\(\)\.parameters\.(\w+)')
 foreach ($reference in $references) {
@@ -59,7 +74,7 @@ foreach ($job in $jobs.pJobs) {
     Assert-True ($targets.Add($target)) "Duplicate sink target: $target"
 }
 Assert-True ($schemas.Count -gt 1) 'Demo must demonstrate reuse across different CSV schemas.'
-Write-Host 'PASS: parameter bindings, failure propagation, sample paths, and distinct schemas'
+Write-Host 'PASS: copy and file-check parameter bindings, failure propagation, sample paths, and distinct schemas'
 
 & {
     function Invoke-AdfPipeline {
