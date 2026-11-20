@@ -132,7 +132,7 @@ The second CSV has a different schema. Neither needs a separate dataset or copy 
 
 `pRunDate` controls the **destination partition only**. Source dates are supplied explicitly in each job's `sourceFolder`; changing the run date does not create new source files.
 
-## What is deployed
+## What is deployed by the Blob quick start
 
 | Component | Purpose |
 |---|---|
@@ -148,7 +148,7 @@ The second CSV has a different schema. Neither needs a separate dataset or copy 
 | `acc_PreviewCsv` helper | Makes small output datasets readable through ADF Lookup |
 | Container-scoped RBAC grants | Authorizes the factory identity on the demo containers |
 
-No scheduled triggers, custom compute cluster, or database is deployed. The default region is West US 2; choose an approved supported region.
+The Blob quick start deploys no scheduled triggers, custom compute cluster, or SQL database. The default region is West US 2; choose an approved supported region.
 
 ### Check a file without copying it
 
@@ -164,11 +164,25 @@ In **Monitor > Pipeline runs > activity runs > CheckFileExists > Output**, expec
 
 The inputs are also in [check-file-exists.parameters.json](examples/check-file-exists.parameters.json). See the [walkthrough](docs/post-deployment-walkthrough.md#standalone-file-existence-check) for the expression used to branch on the result.
 
+## Optional: restore and validate an Azure SQL backup
+
+This separate demo adds a small Azure SQL logical server/database and private ADF connectivity to the **same resource group and factory**, without changing the Blob resources:
+
+```powershell
+.\scripts\Deploy-SqlRestoreDemo.ps1
+.\scripts\Run-SqlRestoreDemo.ps1
+.\scripts\Run-SqlRestoreDemo.ps1 -ForceFailure
+```
+
+`acc_ValidateSqlBackup` performs a **real point-in-time restore**, runs the editable [validation script](sql/validate-restored-backup.sql), branches on its result, demonstrates PASS or FAIL, and deletes the unique temporary database. The fail command intentionally ends with `BACKUP_VALIDATION_FAILED`; **no email is sent**. SQL resources add ongoing charges and the initial automatic backup needs time to become available.
+
+For Studio parameters, deployment/security details, rule extension, costs, and tests, see the **[SQL backup validation walkthrough](docs/sql-backup-validation-walkthrough.md)**. This is optional and is not deployed by the original Blob quick start.
+
 ## VS Code
 
 Open [ADF-Parameterized-Pipeline.code-workspace](ADF-Parameterized-Pipeline.code-workspace), accept the recommended Bicep and PowerShell extensions, and use **Terminal > Run Task > Accelerator: ...**.
 
-The tasks include deployment, **single copy and show rows**, and an explicitly optional batch. The CLI works without VS Code too.
+The tasks include deployment, **single copy and show rows**, an explicitly optional batch, and the optional SQL backup PASS/FAIL demo. The CLI works without VS Code too.
 
 ## Advanced: existing ADF
 

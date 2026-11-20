@@ -1,0 +1,314 @@
+{
+  "name": "acc_ValidateSqlBackup",
+  "properties": {
+    "description": "Restore an Azure SQL automatic backup into a unique temporary database, validate content, demonstrate PASS/FAIL, and clean up. No email is sent.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "folder": { "name": "Accelerator" },
+    "parameters": {
+      "pSqlServerResourceId": { "type": "String" },
+      "pSqlLocation": { "type": "String" },
+      "pSourceDatabase": { "type": "String", "defaultValue": "acc_BackupSource" },
+      "pRestorePointInTime": { "type": "String", "defaultValue": "" },
+      "pExpectedRowCount": { "type": "Int", "defaultValue": 3 },
+      "pExpectedAmountTotal": { "type": "Int", "defaultValue": 600 },
+      "pForceFailure": { "type": "Bool", "defaultValue": false }
+    },
+    "variables": {
+      "vTemporaryDatabase": { "type": "String" },
+      "vRestorePointInTime": { "type": "String" },
+      "vRestoreStatus": { "type": "String", "defaultValue": "Pending" },
+      "vOutcome": { "type": "String", "defaultValue": "ERROR" },
+      "vMessage": { "type": "String", "defaultValue": "Restore or validation activity failed. Inspect the original activity error." }
+    },
+    "activities": [
+      {
+        "name": "NameTemporaryDatabase",
+        "type": "SetVariable",
+        "typeProperties": {
+          "variableName": "vTemporaryDatabase",
+          "value": { "value": "@concat('acc_restore_',replace(pipeline().RunId,'-',''))", "type": "Expression" }
+        }
+      },
+      {
+        "name": "ReadSourceDatabase",
+        "type": "WebActivity",
+        "dependsOn": [{ "activity": "NameTemporaryDatabase", "dependencyConditions": ["Succeeded"] }],
+        "policy": { "timeout": "0.00:03:00", "retry": 2, "retryIntervalInSeconds": 30 },
+        "typeProperties": {
+          "method": "GET",
+          "url": {
+            "value": "@concat('https://management.azure.com',pipeline().parameters.pSqlServerResourceId,'/databases/',pipeline().parameters.pSourceDatabase,'?api-version=2025-01-01')",
+            "type": "Expression"
+          },
+          "authentication": { "type": "MSI", "resource": "https://management.azure.com/" }
+        }
+      },
+      {
+        "name": "CheckBackupAvailable",
+        "type": "IfCondition",
+        "dependsOn": [{ "activity": "ReadSourceDatabase", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "expression": { "value": "@contains(activity('ReadSourceDatabase').output.properties,'earliestRestoreDate')", "type": "Expression" },
+          "ifTrueActivities": [],
+          "ifFalseActivities": [
+            {
+              "name": "FailBackupNotReady",
+              "type": "Fail",
+              "typeProperties": {
+                "errorCode": "BACKUP_NOT_READY",
+                "message": "Azure SQL has not reported the initial restorable backup window. Wait for the first automatic backup and retry."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "SelectRestorePoint",
+        "type": "SetVariable",
+        "dependsOn": [{ "activity": "CheckBackupAvailable", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "variableName": "vRestorePointInTime",
+          "value": {
+            "value": "@if(empty(pipeline().parameters.pRestorePointInTime),formatDateTime(addMinutes(utcNow(),-10),'yyyy-MM-ddTHH:mm:ssZ'),formatDateTime(pipeline().parameters.pRestorePointInTime,'o'))",
+            "type": "Expression"
+          }
+        }
+      },
+      {
+        "name": "CheckRestoreWindow",
+        "type": "IfCondition",
+        "dependsOn": [{ "activity": "SelectRestorePoint", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "expression": {
+            "value": "@and(greaterOrEquals(ticks(variables('vRestorePointInTime')),ticks(activity('ReadSourceDatabase').output.properties.earliestRestoreDate)),less(ticks(variables('vRestorePointInTime')),ticks(utcNow())))",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [],
+          "ifFalseActivities": [
+            {
+              "name": "FailInvalidRestorePoint",
+              "type": "Fail",
+              "typeProperties": {
+                "errorCode": "INVALID_RESTORE_POINT",
+                "message": "The requested UTC restore point is outside the source backup window. Wait for the initial automatic backup or select a valid restore time."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "RestoreTemporaryDatabase",
+        "type": "WebActivity",
+        "dependsOn": [{ "activity": "CheckRestoreWindow", "dependencyConditions": ["Succeeded"] }],
+        "policy": { "timeout": "0.00:05:00", "retry": 0, "retryIntervalInSeconds": 30 },
+        "typeProperties": {
+          "method": "PUT",
+          "turnOffAsync": true,
+          "httpRequestTimeout": "00:03:00",
+          "headers": { "Content-Type": "application/json" },
+          "url": {
+            "value": "@concat('https://management.azure.com',pipeline().parameters.pSqlServerResourceId,'/databases/',variables('vTemporaryDatabase'),'?api-version=2025-01-01')",
+            "type": "Expression"
+          },
+          "body": {
+            "value": "@string(setProperty(setProperty(json('{\"sku\":{\"name\":\"Basic\",\"tier\":\"Basic\",\"capacity\":5},\"tags\":{\"feature\":\"sql-backup-validation\",\"temporary\":\"true\"}}'),'location',pipeline().parameters.pSqlLocation),'properties',setProperty(setProperty(json('{\"createMode\":\"PointInTimeRestore\",\"requestedBackupStorageRedundancy\":\"Local\"}'),'sourceDatabaseId',concat(pipeline().parameters.pSqlServerResourceId,'/databases/',pipeline().parameters.pSourceDatabase)),'restorePointInTime',variables('vRestorePointInTime'))))",
+            "type": "Expression"
+          },
+          "authentication": { "type": "MSI", "resource": "https://management.azure.com/" }
+        }
+      },
+      {
+        "name": "WaitForRestore",
+        "type": "Until",
+        "dependsOn": [{ "activity": "RestoreTemporaryDatabase", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "timeout": "0.00:30:00",
+          "expression": { "value": "@not(or(equals(variables('vRestoreStatus'),'Pending'),equals(variables('vRestoreStatus'),'InProgress')))", "type": "Expression" },
+          "activities": [
+            {
+              "name": "WaitBeforeStatusCheck",
+              "type": "Wait",
+              "typeProperties": { "waitTimeInSeconds": 20 }
+            },
+            {
+              "name": "ReadRestoreStatus",
+              "type": "WebActivity",
+              "dependsOn": [{ "activity": "WaitBeforeStatusCheck", "dependencyConditions": ["Succeeded"] }],
+              "policy": { "timeout": "0.00:03:00", "retry": 2, "retryIntervalInSeconds": 30 },
+              "typeProperties": {
+                "method": "GET",
+                "turnOffAsync": true,
+                "url": {
+                  "value": "@activity('RestoreTemporaryDatabase').output.ADFWebActivityResponseHeaders['Azure-AsyncOperation']",
+                  "type": "Expression"
+                },
+                "authentication": { "type": "MSI", "resource": "https://management.azure.com/" }
+              }
+            },
+            {
+              "name": "SetRestoreStatus",
+              "type": "SetVariable",
+              "dependsOn": [{ "activity": "ReadRestoreStatus", "dependencyConditions": ["Succeeded"] }],
+              "typeProperties": {
+                "variableName": "vRestoreStatus",
+                "value": { "value": "@activity('ReadRestoreStatus').output.status", "type": "Expression" }
+              }
+            },
+            {
+              "name": "MarkStatusPollingFailed",
+              "type": "SetVariable",
+              "dependsOn": [{ "activity": "ReadRestoreStatus", "dependencyConditions": ["Failed"] }],
+              "typeProperties": {
+                "variableName": "vRestoreStatus",
+                "value": "PollingFailed"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "CheckRestoreSucceeded",
+        "type": "IfCondition",
+        "dependsOn": [{ "activity": "WaitForRestore", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "expression": { "value": "@equals(variables('vRestoreStatus'),'Succeeded')", "type": "Expression" },
+          "ifTrueActivities": [],
+          "ifFalseActivities": [
+            {
+              "name": "FailRestoreOperation",
+              "type": "Fail",
+              "typeProperties": {
+                "errorCode": "SQL_RESTORE_FAILED",
+                "message": "Azure SQL asynchronous restore or status polling did not succeed. Inspect ReadRestoreStatus output and error for the original failure."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "ValidateRestore",
+        "type": "Script",
+        "dependsOn": [{ "activity": "CheckRestoreSucceeded", "dependencyConditions": ["Succeeded"] }],
+        "policy": { "timeout": "0.00:15:00", "retry": 2, "retryIntervalInSeconds": 60 },
+        "linkedServiceName": {
+          "referenceName": "acc_AzureSql",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "pDatabase": { "value": "@variables('vTemporaryDatabase')", "type": "Expression" }
+          }
+        },
+        "typeProperties": {
+          "scriptBlockExecutionTimeout": "00:05:00",
+          "scripts": [
+            {
+              "type": "Query",
+              "text": "__VALIDATION_SQL__",
+              "parameters": [
+                {
+                  "name": "ExpectedRowCount",
+                  "type": "Int32",
+                  "direction": "Input",
+                  "value": { "value": "@pipeline().parameters.pExpectedRowCount", "type": "Expression" }
+                },
+                {
+                  "name": "ExpectedAmountTotal",
+                  "type": "Int32",
+                  "direction": "Input",
+                  "value": { "value": "@pipeline().parameters.pExpectedAmountTotal", "type": "Expression" }
+                },
+                {
+                  "name": "ForceFailure",
+                  "type": "Int32",
+                  "direction": "Input",
+                  "value": { "value": "@if(pipeline().parameters.pForceFailure,1,0)", "type": "Expression" }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "CaptureValidationSummary",
+        "type": "SetVariable",
+        "dependsOn": [{ "activity": "ValidateRestore", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "variableName": "vMessage",
+          "value": { "value": "@activity('ValidateRestore').output.resultSets[0].rows[0].Summary", "type": "Expression" }
+        }
+      },
+      {
+        "name": "IfValidationPassed",
+        "type": "IfCondition",
+        "dependsOn": [{ "activity": "CaptureValidationSummary", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "expression": { "value": "@equals(activity('ValidateRestore').output.resultSets[0].rows[0].ValidationPassed,1)", "type": "Expression" },
+          "ifTrueActivities": [
+            {
+              "name": "MockValidationPass",
+              "type": "SetVariable",
+              "typeProperties": { "variableName": "vOutcome", "value": "PASS" }
+            }
+          ],
+          "ifFalseActivities": [
+            {
+              "name": "MockValidationFail_NoEmail",
+              "type": "SetVariable",
+              "typeProperties": { "variableName": "vOutcome", "value": "FAIL" }
+            }
+          ]
+        }
+      },
+      {
+        "name": "DeleteTemporaryDatabase",
+        "type": "WebActivity",
+        "dependsOn": [
+          { "activity": "RestoreTemporaryDatabase", "dependencyConditions": ["Completed"] },
+          { "activity": "WaitForRestore", "dependencyConditions": ["Completed", "Skipped"] },
+          { "activity": "CheckRestoreSucceeded", "dependencyConditions": ["Completed", "Skipped"] },
+          { "activity": "ValidateRestore", "dependencyConditions": ["Completed", "Skipped"] },
+          { "activity": "CaptureValidationSummary", "dependencyConditions": ["Completed", "Skipped"] },
+          { "activity": "IfValidationPassed", "dependencyConditions": ["Completed", "Skipped"] }
+        ],
+        "policy": { "timeout": "0.00:10:00", "retry": 2, "retryIntervalInSeconds": 30 },
+        "typeProperties": {
+          "method": "DELETE",
+          "turnOffAsync": false,
+          "httpRequestTimeout": "00:03:00",
+          "url": {
+            "value": "@concat('https://management.azure.com',pipeline().parameters.pSqlServerResourceId,'/databases/',variables('vTemporaryDatabase'),'?api-version=2025-01-01')",
+            "type": "Expression"
+          },
+          "authentication": { "type": "MSI", "resource": "https://management.azure.com/" }
+        }
+      },
+      {
+        "name": "ReportDemoResult",
+        "type": "IfCondition",
+        "dependsOn": [{ "activity": "DeleteTemporaryDatabase", "dependencyConditions": ["Succeeded"] }],
+        "typeProperties": {
+          "expression": { "value": "@equals(variables('vOutcome'),'PASS')", "type": "Expression" },
+          "ifTrueActivities": [
+            {
+              "name": "DemoPassed",
+              "type": "SetVariable",
+              "typeProperties": {
+                "variableName": "vMessage",
+                "value": "PASS: backup was restored, validation rules passed, and the temporary database was deleted. No email sent."
+              }
+            }
+          ],
+          "ifFalseActivities": [
+            {
+              "name": "DemoFailed",
+              "type": "Fail",
+              "typeProperties": {
+                "errorCode": "BACKUP_VALIDATION_FAILED",
+                "message": { "value": "@concat(variables('vOutcome'),': ',variables('vMessage'),' Temporary database cleanup completed. No email sent.')", "type": "Expression" }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

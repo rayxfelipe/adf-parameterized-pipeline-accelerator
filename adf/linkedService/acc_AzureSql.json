@@ -1,0 +1,23 @@
+{
+  "name": "acc_AzureSql",
+  "properties": {
+    "description": "Optional SQL restore demo: fixed server, runtime database, managed identity and private connectivity.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "parameters": {
+      "pDatabase": { "type": "String" }
+    },
+    "type": "AzureSqlDatabase",
+    "version": "2.0",
+    "typeProperties": {
+      "server": "__SQL_SERVER_FQDN__",
+      "database": { "value": "@linkedService().pDatabase", "type": "Expression" },
+      "authenticationType": "SystemAssignedManagedIdentity",
+      "encrypt": "mandatory",
+      "trustServerCertificate": false
+    },
+    "connectVia": {
+      "referenceName": "acc-SqlManagedIR",
+      "type": "IntegrationRuntimeReference"
+    }
+  }
+}

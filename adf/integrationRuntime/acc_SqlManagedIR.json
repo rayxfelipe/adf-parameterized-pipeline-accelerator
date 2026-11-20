@@ -1,0 +1,16 @@
+{
+  "name": "acc-SqlManagedIR",
+  "properties": {
+    "description": "Private SQL connectivity for the optional restore-validation demo.",
+    "type": "Managed",
+    "managedVirtualNetwork": {
+      "type": "ManagedVirtualNetworkReference",
+      "referenceName": "default"
+    },
+    "typeProperties": {
+      "computeProperties": {
+        "location": "AutoResolve"
+      }
+    }
+  }
+}

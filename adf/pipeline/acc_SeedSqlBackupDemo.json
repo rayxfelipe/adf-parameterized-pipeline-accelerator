@@ -1,0 +1,43 @@
+{
+  "name": "acc_SeedSqlBackupDemo",
+  "properties": {
+    "description": "Bootstrap only: creates invented source records and a read-only contained identity. Temporarily requires SQL Entra administrator privileges.",
+    "annotations": ["adf-parameterized-pipeline-accelerator"],
+    "folder": { "name": "Accelerator/Helpers" },
+    "parameters": {
+      "pSourceDatabase": { "type": "String", "defaultValue": "acc_BackupSource" },
+      "pFactoryClientId": { "type": "String" }
+    },
+    "activities": [
+      {
+        "name": "SeedSyntheticSql",
+        "type": "Script",
+        "policy": { "timeout": "0.00:15:00", "retry": 2, "retryIntervalInSeconds": 60 },
+        "linkedServiceName": {
+          "referenceName": "acc_AzureSql",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "pDatabase": { "value": "@pipeline().parameters.pSourceDatabase", "type": "Expression" }
+          }
+        },
+        "typeProperties": {
+          "scriptBlockExecutionTimeout": "00:05:00",
+          "scripts": [
+            {
+              "type": "Query",
+              "text": "__SEED_SQL__",
+              "parameters": [
+                {
+                  "name": "FactoryClientId",
+                  "type": "String",
+                  "direction": "Input",
+                  "value": { "value": "@pipeline().parameters.pFactoryClientId", "type": "Expression" }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

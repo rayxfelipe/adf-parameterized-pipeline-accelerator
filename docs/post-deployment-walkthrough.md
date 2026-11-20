@@ -55,7 +55,7 @@ Open the printed `studioUrl`, or find the factory in Azure Portal and select its
 | `acc_SeedSamples` / `acc_PreviewCsv` | Setup and inspection helpers, not the core parameterization lesson | **Accelerator/Helpers** |
 | Container-scoped role assignments | Let the factory identity read/write the appropriate containers | Azure Portal **Access control (IAM)** |
 
-No SQL database, mapping-data-flow cluster, scheduled trigger, custom/self-hosted integration runtime, or private endpoint is created. Activities use the built-in Azure integration runtime.
+The Blob quick start creates no SQL database, mapping-data-flow cluster, scheduled trigger, custom/self-hosted integration runtime, or private endpoint. Its activities use the built-in Azure integration runtime. The separate optional [SQL backup validation demo](sql-backup-validation-walkthrough.md) adds SQL resources and a managed private integration runtime without changing these Blob assets.
 
 ## 2. Learn the four layers
 

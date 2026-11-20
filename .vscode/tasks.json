@@ -57,6 +57,27 @@
       "command": "pwsh",
       "args": ["-NoProfile", "-File", "${workspaceFolder}/tests/Test-Deployed.ps1"],
       "problemMatcher": []
+    },
+    {
+      "label": "Accelerator: Deploy optional SQL backup demo",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}\\scripts\\Deploy-SqlRestoreDemo.ps1"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Accelerator: SQL backup PASS demo",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}\\scripts\\Run-SqlRestoreDemo.ps1"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Accelerator: SQL backup FAIL demo (intentional)",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}\\scripts\\Run-SqlRestoreDemo.ps1", "-ForceFailure"],
+      "problemMatcher": []
     }
   ],
   "inputs": [

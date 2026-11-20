@@ -1,6 +1,8 @@
 .local/
 .azure/
 infra/main.json
+infra/sql-restore.json
+infra/sql-managed-network.json
 infra/modules/*.json
 *.local.json
 *.log

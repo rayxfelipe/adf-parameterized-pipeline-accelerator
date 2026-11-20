@@ -79,14 +79,25 @@ function Invoke-AdfPipeline {
     $body = @{
         lastUpdatedAfter = [DateTime]::UtcNow.AddDays(-1).ToString('o')
         lastUpdatedBefore = [DateTime]::UtcNow.AddDays(1).ToString('o')
-    } | ConvertTo-Json -Compress
+    }
+    $activities = [Collections.Generic.List[object]]::new()
     try {
-        $body | Set-Content -LiteralPath $tempFile -Encoding utf8NoBOM
-        $activities = Invoke-Az -Arguments @(
-            'rest', '--method', 'post',
-            '--url', "$factoryUrl/pipelineruns/$runId/queryActivityruns?api-version=2018-06-01",
-            '--body', "@$tempFile", '--subscription', $Deployment.subscriptionId
-        )
+        do {
+            $body | ConvertTo-Json -Compress | Set-Content -LiteralPath $tempFile -Encoding utf8NoBOM
+            $page = Invoke-Az -Arguments @(
+                'rest', '--method', 'post',
+                '--url', "$factoryUrl/pipelineruns/$runId/queryActivityruns?api-version=2018-06-01",
+                '--body', "@$tempFile", '--subscription', $Deployment.subscriptionId
+            )
+            foreach ($activity in $page.value) { $activities.Add($activity) }
+            $token = if ($page.ContainsKey('continuationToken')) { $page.continuationToken } else { $null }
+            if ($token) {
+                if ($body.ContainsKey('continuationToken') -and $body.continuationToken -eq $token) {
+                    throw 'ADF returned a repeated activity-run continuation token.'
+                }
+                $body.continuationToken = $token
+            }
+        } while ($token)
     }
     finally {
         if (Test-Path -LiteralPath $tempFile) { Remove-Item -LiteralPath $tempFile }
@@ -96,7 +107,7 @@ function Invoke-AdfPipeline {
         runId = $runId
         status = $run.status
         message = $run.message
-        activities = $activities.value
+        activities = $activities.ToArray()
     }
     if ($run.status -ne 'Succeeded' -and -not $AllowFailure) {
         throw ($result | ConvertTo-Json -Depth 30)
